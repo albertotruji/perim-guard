@@ -1,0 +1,8 @@
+{
+  "target_domain": "example.com",
+  "tls_min_days_warning": 21,
+  "min_dmarc_policy": "quarantine",
+  "min_dmarc_pct": 100,
+  "dns_timeout_seconds": 5.0,
+  "tls_timeout_seconds": 10.0
+}

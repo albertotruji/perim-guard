@@ -1,0 +1,72 @@
+name: Perimeter Security Audit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '0 6 * * 1'   # lunes 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Tests unitarios
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Ejecutar pytest
+        run: pytest -v
+
+  audit:
+    name: Auditoría perimetral
+    needs: test
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Ejecutar auditoría
+        env:
+          # Prioridad: secreto (se enmascara en los logs) > variable > config.json
+          PERIMGUARD_TARGET_DOMAIN: ${{ secrets.TARGET_DOMAIN || vars.TARGET_DOMAIN }}
+          PERIMGUARD_WEB_HOSTS: ${{ secrets.WEB_HOSTS || vars.WEB_HOSTS }}
+        run: python main.py --config config.json --output audit_report.json
+
+      - name: Guardar reporte JSON
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-report
+          path: audit_report.json
+          retention-days: 14
+          if-no-files-found: ignore
